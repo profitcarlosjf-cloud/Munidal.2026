@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Simulador Real Mundial 2026 — 16vos</title>
+<style>
+:root{--bg:#0b1020;--card:#151b2f;--muted:#a9b3c7;--text:#f5f7fb;--line:#26314f;--ok:#2ee59d;--warn:#ffd166;--bad:#ff6b6b;--accent:#7aa2ff}*{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;background:var(--bg);color:var(--text)}header{padding:18px 16px;border-bottom:1px solid var(--line);position:sticky;top:0;background:rgba(11,16,32,.96);backdrop-filter:blur(10px);z-index:2}h1{font-size:20px;margin:0 0 8px}p{color:var(--muted);line-height:1.35}.row{display:flex;gap:8px;flex-wrap:wrap}button{border:0;border-radius:12px;padding:10px 12px;background:var(--accent);color:#071025;font-weight:700}button.secondary{background:#26314f;color:var(--text)}main{padding:14px;max-width:1180px;margin:auto}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(295px,1fr));gap:12px}.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:12px;box-shadow:0 8px 30px rgba(0,0,0,.18)}h2{font-size:17px;margin:0 0 8px}h3{font-size:15px;margin:14px 0 7px;color:#dfe6ff}.small{font-size:12px;color:var(--muted)}table{width:100%;border-collapse:collapse;font-size:13px}th,td{padding:7px 5px;border-bottom:1px solid var(--line);text-align:right}th:first-child,td:first-child{text-align:left}tr.qual td:first-child{color:var(--ok);font-weight:700}tr.third td:first-child{color:var(--warn);font-weight:700}input.score{width:42px;padding:8px 4px;border-radius:10px;border:1px solid var(--line);background:#0d1326;color:var(--text);text-align:center}.match{display:grid;grid-template-columns:1fr 48px 12px 48px 1fr;gap:6px;align-items:center;border-bottom:1px solid var(--line);padding:8px 0}.match .home{text-align:right}.match .away{text-align:left}.status{font-size:11px;color:var(--muted);text-align:center;grid-column:1/-1}.pill{display:inline-block;padding:4px 8px;border:1px solid var(--line);border-radius:999px;color:var(--muted);font-size:12px;margin:2px}.bracket{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:10px}.ko{padding:10px;border:1px solid var(--line);border-radius:14px;background:#0d1326}.ko b{color:#dfe6ff}.ok{color:var(--ok)}.warn{color:var(--warn)}.bad{color:var(--bad)}details{margin-top:8px}summary{cursor:pointer;color:#dfe6ff}.note{padding:10px;border-radius:12px;background:#0d1326;border:1px solid var(--line);margin:8px 0}.tabs{display:flex;gap:8px;overflow:auto;padding-bottom:8px}.tab{white-space:nowrap;background:#0d1326;color:var(--text);border:1px solid var(--line);padding:8px 10px;border-radius:999px}.tab.active{background:var(--accent);color:#071025}.hidden{display:none}@media(max-width:600px){main{padding:10px}header{padding:14px 12px}.match{grid-template-columns:1fr 44px 10px 44px 1fr;font-size:13px}th,td{font-size:12px;padding:6px 3px}button{width:100%}.row button{flex:1 1 150px}}
+</style>
+</head>
+<body>
+<header>
+  <h1>Simulador Real Mundial 2026 — 16vos</h1>
+  <div class="row">
+    <button onclick="loadLive()">Actualizar resultados</button>
+    <button class="secondary" onclick="recalc()">Recalcular manual</button>
+    <button class="secondary" onclick="resetManual()">Limpiar manual</button>
+  </div>
+  <p id="status" class="small">Listo. Usa “Actualizar resultados” o edita marcadores manualmente.</p>
+</header>
+<main>
+  <section class="card">
+    <h2>Reglas usadas</h2>
+    <p class="small">Clasifican 1° y 2° de cada grupo + los 8 mejores terceros. Desempates implementados: puntos, diferencia de goles, goles a favor, enfrentamientos directos entre equipos empatados, fair play manual y ranking FIFA manual. Si todavía persiste empate sin datos, se marca como no resuelto. Los cruces de terceros se toman de la tabla oficial de 495 combinaciones publicada como Anexo C; el archivo intenta cargarla con la API pública de Wikipedia al abrir.</p>
+    <div id="annexStatus" class="note small">Anexo C: pendiente de cargar.</div>
+  </section>
+  <section class="card">
+    <h2>Grupos</h2><div class="tabs" id="tabs"></div><div id="groups"></div>
+  </section>
+  <section class="grid">
+    <div class="card"><h2>Mejores terceros</h2><div id="thirds"></div></div>
+    <div class="card"><h2>Alertas de desempate</h2><div id="warnings" class="small"></div></div>
+  </section>
+  <section class="card"><h2>16vos de final</h2><div id="r32" class="bracket"></div></section>
+  <section class="card"><h2>Partidos / captura manual</h2><div id="matches"></div></section>
+</main>
+<script>
+const groups = {
+A:['Mexico','South Africa','South Korea','Czechia'],
+B:['Canada','Bosnia and Herzegovina','Qatar','Switzerland'],
+C:['Brazil','Morocco','Haiti','Scotland'],
+D:['United States','Paraguay','Australia','Turkey'],
+E:['Germany','Curacao','Ivory Coast','Ecuador'],
+F:['Netherlands','Japan','Sweden','Tunisia'],
+G:['Belgium','Egypt','Iran','New Zealand'],
+H:['Spain','Cape Verde','Saudi Arabia','Uruguay'],
+I:['France','Senegal','Iraq','Norway'],
+J:['Argentina','Algeria','Austria','Jordan'],
+K:['Portugal','DR Congo','Uzbekistan','Colombia'],
+L:['England','Croatia','Ghana','Panama']
+};
+const codes = {'Mexico':'MEX','South Africa':'RSA','South Korea':'KOR','Czechia':'CZE','Canada':'CAN','Bosnia and Herzegovina':'BIH','Qatar':'QAT','Switzerland':'SUI','Brazil':'BRA','Morocco':'MAR','Haiti':'HTI','Scotland':'SCO','United States':'USA','Paraguay':'PAR','Australia':'AUS','Turkey':'TUR','Germany':'GER','Curacao':'CUW','Ivory Coast':'CIV','Ecuador':'ECU','Netherlands':'NED','Japan':'JPN','Sweden':'SWE','Tunisia':'TUN','Belgium':'BEL','Egypt':'EGY','Iran':'IRI','New Zealand':'NZL','Spain':'ESP','Cape Verde':'CPV','Saudi Arabia':'KSA','Uruguay':'URU','France':'FRA','Senegal':'SEN','Iraq':'IRQ','Norway':'NOR','Argentina':'ARG','Algeria':'DZA','Austria':'AUT','Jordan':'JOR','Portugal':'POR','DR Congo':'COD','Uzbekistan':'UZB','Colombia':'COL','England':'ENG','Croatia':'CRO','Ghana':'GHA','Panama':'PAN'};
+let matches = [
+['A','Mexico','South Africa',2,0],['A','South Korea','Czechia',2,1],['A','Czechia','South Africa',1,1],['A','Mexico','South Korea',1,0],['A','Czechia','Mexico',null,null],['A','South Africa','South Korea',null,null],
+['B','Canada','Bosnia and Herzegovina',1,1],['B','Qatar','Switzerland',1,1],['B','Switzerland','Bosnia and Herzegovina',4,1],['B','Canada','Qatar',6,0],['B','Switzerland','Canada',null,null],['B','Bosnia and Herzegovina','Qatar',null,null],
+['C','Brazil','Morocco',1,1],['C','Haiti','Scotland',0,1],['C','Scotland','Morocco',0,1],['C','Brazil','Haiti',0,0],['C','Scotland','Brazil',null,null],['C','Morocco','Haiti',null,null],
+['D','United States','Paraguay',4,1],['D','Australia','Turkey',2,0],['D','United States','Australia',2,0],['D','Turkey','Paraguay',0,1],['D','Turkey','United States',null,null],['D','Paraguay','Australia',null,null],
+['E','Germany','Curacao',7,1],['E','Ivory Coast','Ecuador',1,0],['E','Germany','Ivory Coast',null,null],['E','Ecuador','Curacao',null,null],['E','Ecuador','Germany',null,null],['E','Curacao','Ivory Coast',null,null],
+['F','Netherlands','Japan',2,2],['F','Sweden','Tunisia',5,1],['F','Netherlands','Sweden',null,null],['F','Tunisia','Japan',null,null],['F','Tunisia','Netherlands',null,null],['F','Japan','Sweden',null,null],
+['G','Belgium','Egypt',1,1],['G','Iran','New Zealand',2,2],['G','Belgium','Iran',null,null],['G','New Zealand','Egypt',null,null],['G','New Zealand','Belgium',null,null],['G','Egypt','Iran',null,null],
+['H','Spain','Cape Verde',0,0],['H','Saudi Arabia','Uruguay',1,1],['H','Spain','Saudi Arabia',null,null],['H','Uruguay','Cape Verde',null,null],['H','Uruguay','Spain',null,null],['H','Cape Verde','Saudi Arabia',null,null],
+['I','France','Senegal',3,1],['I','Iraq','Norway',1,4],['I','France','Iraq',null,null],['I','Norway','Senegal',null,null],['I','Norway','France',null,null],['I','Senegal','Iraq',null,null],
+['J','Argentina','Algeria',3,0],['J','Austria','Jordan',3,1],['J','Argentina','Austria',null,null],['J','Jordan','Algeria',null,null],['J','Jordan','Argentina',null,null],['J','Algeria','Austria',null,null],
+['K','Portugal','DR Congo',1,1],['K','Uzbekistan','Colombia',1,3],['K','Portugal','Uzbekistan',null,null],['K','Colombia','DR Congo',null,null],['K','Colombia','Portugal',null,null],['K','DR Congo','Uzbekistan',null,null],
+['L','England','Croatia',4,2],['L','Ghana','Panama',1,0],['L','England','Ghana',null,null],['L','Panama','Croatia',null,null],['L','Panama','England',null,null],['L','Croatia','Ghana',null,null]
+].map((m,i)=>({id:i+1,group:m[0],home:m[1],away:m[2],hg:m[3],ag:m[4],manual:false,status:m[3]==null?'scheduled':'final'}));
+let annexMap = new Map();
+let activeGroup='A';
+let unresolved=[];
+function teamObj(name, group){return {name,group,p:0,w:0,d:0,l:0,gf:0,ga:0,gd:0,pts:0,fp:0,rank:999};}
+function played(m){return Number.isFinite(m.hg)&&Number.isFinite(m.ag)}
+function calcTables(){unresolved=[];let tables={}; for(const g in groups){tables[g]={}; groups[g].forEach(t=>tables[g][t]=teamObj(t,g));}
+ for(const m of matches.filter(played)){let h=tables[m.group][m.home], a=tables[m.group][m.away]; h.p++;a.p++;h.gf+=m.hg;h.ga+=m.ag;h.gd=h.gf-h.ga;a.gf+=m.ag;a.ga+=m.hg;a.gd=a.gf-a.ga;if(m.hg>m.ag){h.w++;a.l++;h.pts+=3}else if(m.hg<m.ag){a.w++;h.l++;a.pts+=3}else{h.d++;a.d++;h.pts++;a.pts++}}
+ let out={}; for(const g in tables){out[g]=rankGroup(Object.values(tables[g]), g);} return out;}
+function miniStats(teamNames, group){let s={};teamNames.forEach(n=>s[n]={pts:0,gd:0,gf:0}); for(const m of matches.filter(x=>x.group===group&&played(x)&&teamNames.includes(x.home)&&teamNames.includes(x.away))){s[m.home].gf+=m.hg;s[m.away].gf+=m.ag;s[m.home].gd+=m.hg-m.ag;s[m.away].gd+=m.ag-m.hg;if(m.hg>m.ag)s[m.home].pts+=3;else if(m.hg<m.ag)s[m.away].pts+=3;else{s[m.home].pts++;s[m.away].pts++;}} return s;}
+function rankGroup(arr, group){let base=[...arr].sort((a,b)=>b.pts-a.pts||b.gd-a.gd||b.gf-a.gf); let result=[]; for(let i=0;i<base.length;){let block=[base[i]]; let j=i+1; while(j<base.length && base[j].pts===base[i].pts && base[j].gd===base[i].gd && base[j].gf===base[i].gf){block.push(base[j]);j++;} if(block.length>1){let ms=miniStats(block.map(x=>x.name),group); block.sort((a,b)=>ms[b.name].pts-ms[a.name].pts||ms[b.name].gd-ms[a.name].gd||ms[b.name].gf-ms[a.name].gf||a.fp-b.fp||a.rank-b.rank); for(let k=1;k<block.length;k++){let A=block[k-1],B=block[k],ma=ms[A.name],mb=ms[B.name]; if(A.pts===B.pts&&A.gd===B.gd&&A.gf===B.gf&&ma.pts===mb.pts&&ma.gd===mb.gd&&ma.gf===mb.gf&&A.fp===B.fp&&A.rank===B.rank){unresolved.push(`Grupo ${group}: ${A.name} y ${B.name} siguen empatados; falta fair play/ranking FIFA oficial.`)}}}
+ result.push(...block); i=j;} return result;}
+function thirdTable(tables){let thirds=Object.keys(tables).map(g=>({...tables[g][2],thirdGroup:g})); thirds.sort((a,b)=>b.pts-a.pts||b.gd-a.gd||b.gf-a.gf||a.fp-b.fp||a.rank-b.rank||a.group.localeCompare(b.group)); return thirds;}
+const fixedR32=[['73','2A','2B'],['74','1E','3ABCDF'],['75','1F','2C'],['76','1C','2F'],['77','1I','3CDFGH'],['78','2E','2I'],['79','1A','3CEFHI'],['80','1L','3EHIJK'],['81','1D','3BEFIJ'],['82','1G','3AEHIJ'],['83','2K','2L'],['84','1H','2J'],['85','1B','3EFGIJ'],['86','1J','2H'],['87','1K','3DEIJL'],['88','2D','2G']];
+const thirdSlots=['1A','1B','1D','1E','1G','1I','1K','1L'];
+function tokenToTeam(tok,tables,thirds){let pos=tok[0], g=tok[1]; if(pos==='1')return tables[g]?.[0]?.name||tok; if(pos==='2')return tables[g]?.[1]?.name||tok; if(pos==='3')return thirds.find(x=>x.thirdGroup===g)?.name||tok; return tok;}
+function currentThirdAssignment(thirds){let qual=thirds.slice(0,8).map(x=>x.thirdGroup).sort().join(''); let row=annexMap.get(qual); return {qual,row};}
+function recalc(){let tables=calcTables(); renderGroups(tables); renderThirds(tables); renderR32(tables); renderWarnings();}
+function renderGroups(tables){let tabs=document.getElementById('tabs'); tabs.innerHTML=''; Object.keys(groups).forEach(g=>{let b=document.createElement('button');b.className='tab '+(g===activeGroup?'active':'');b.textContent='Grupo '+g;b.onclick=()=>{activeGroup=g;renderGroups(tables)};tabs.appendChild(b)}); let div=document.getElementById('groups'); let rows=tables[activeGroup]; div.innerHTML=`<table><thead><tr><th>Equipo</th><th>PTS</th><th>PJ</th><th>DG</th><th>GF</th><th>GC</th></tr></thead><tbody>${rows.map((t,i)=>`<tr class="${i<2?'qual':i===2?'third':''}"><td>${i+1}. ${t.name}</td><td>${t.pts}</td><td>${t.p}</td><td>${t.gd}</td><td>${t.gf}</td><td>${t.ga}</td></tr>`).join('')}</tbody></table>`; renderMatches(activeGroup);}
+function renderThirds(tables){let thirds=thirdTable(tables); document.getElementById('thirds').innerHTML=`<table><thead><tr><th>3°</th><th>G</th><th>PTS</th><th>DG</th><th>GF</th></tr></thead><tbody>${thirds.map((t,i)=>`<tr class="${i<8?'third':''}"><td>${i+1}. ${t.name}</td><td>${t.group}</td><td>${t.pts}</td><td>${t.gd}</td><td>${t.gf}</td></tr>`).join('')}</tbody></table><p class="small">Clasifican los primeros 8 de esta tabla.</p>`;}
+function renderR32(tables){let thirds=thirdTable(tables); let {qual,row}=currentThirdAssignment(thirds); let div=document.getElementById('r32'); let note=''; if(!row) note=`<div class="note bad">No se pudo resolver la asignación exacta de terceros para combinación ${qual||'—'}. Carga Anexo C o revisa conexión.</div>`; let html=note+fixedR32.map(([m,a,b])=>{let left=tokenToTeam(a,tables,thirds); let right=b.startsWith('3')?(row?tokenToTeam(row[thirdSlots.indexOf(a)],tables,thirds):b):tokenToTeam(b,tables,thirds); return `<div class="ko"><b>Partido ${m}</b><br>${left} <span class="small">vs</span> ${right}<br><span class="small">Base: ${a} vs ${b}${b.startsWith('3')&&row?` → ${row[thirdSlots.indexOf(a)]}`:''}</span></div>`}).join(''); div.innerHTML=html;}
+function renderWarnings(){document.getElementById('warnings').innerHTML=unresolved.length?unresolved.map(w=>`<div class="note warn">${w}</div>`).join(''):'<span class="ok">Sin empates no resueltos con los datos actuales.</span>';}
+function renderMatches(g){let div=document.getElementById('matches'); let list=matches.filter(m=>!g||m.group===g); div.innerHTML=list.map(m=>`<div class="match"><div class="home">${m.home}</div><input class="score" inputmode="numeric" value="${m.hg??''}" onchange="setScore(${m.id},'hg',this.value)"><div>-</div><input class="score" inputmode="numeric" value="${m.ag??''}" onchange="setScore(${m.id},'ag',this.value)"><div class="away">${m.away}</div><div class="status">Grupo ${m.group} · ${m.status}${m.manual?' · manual':''}</div></div>`).join('');}
+function setScore(id,k,v){let m=matches.find(x=>x.id===id); m[k]=v===''?null:Number(v); m.manual=true; m.status=played(m)?'manual/final':'scheduled'; recalc();}
+function resetManual(){for(const m of matches){if(m.manual){m.hg=null;m.ag=null;m.manual=false;m.status='scheduled'}} recalc();}
+async function loadAnnex(){let el=document.getElementById('annexStatus'); try{el.textContent='Anexo C: cargando tabla oficial de 495 combinaciones...'; let url='https://en.wikipedia.org/w/api.php?action=parse&page=2026_FIFA_World_Cup_knockout_stage&prop=text&format=json&origin=*'; let js=await fetch(url).then(r=>r.json()); let html=js.parse.text['*']; let text=new DOMParser().parseFromString(html,'text/html').body.innerText; let re=/^\s*(\d{1,3})\s+([A-L](?:\s+[A-L]){7})\s+(3[A-L](?:\s+3[A-L]){7})\s*$/gm; let count=0,mm; while((mm=re.exec(text))){annexMap.set(mm[2].replace(/\s/g,''),mm[3].split(/\s+/)); count++;} if(count<400) throw new Error('solo '+count+' filas'); el.innerHTML=`<span class="ok">Anexo C cargado: ${count} combinaciones.</span>`;}catch(e){el.innerHTML=`<span class="bad">No se pudo cargar Anexo C (${e.message}). Sin eso no se inventan rivales de terceros.</span>`;} recalc();}
+function espnName(s){let n=(s||'').trim(); const map={'USA':'United States','Czech Republic':'Czechia','Korea Republic':'South Korea','Côte d’Ivoire':'Ivory Coast','Cote d\'Ivoire':'Ivory Coast','Curaçao':'Curacao'}; return map[n]||n;}
+async function loadLive(){let st=document.getElementById('status'); st.textContent='Actualizando desde ESPN...'; try{let url='https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard?dates=20260611-20260627&limit=100'; let data=await fetch(url).then(r=>r.json()); let updated=0; for(const ev of (data.events||[])){let comp=ev.competitions?.[0]; let cs=comp?.competitors||[]; if(cs.length!==2) continue; let t1=espnName(cs[0].team.displayName||cs[0].team.name), t2=espnName(cs[1].team.displayName||cs[1].team.name); let s1=Number(cs[0].score), s2=Number(cs[1].score); let m=matches.find(x=>(x.home===t1&&x.away===t2)||(x.home===t2&&x.away===t1)); if(m&&!m.manual&&Number.isFinite(s1)&&Number.isFinite(s2)){if(m.home===t1){m.hg=s1;m.ag=s2}else{m.hg=s2;m.ag=s1} m.status=ev.status?.type?.description||'actualizado'; updated++;}}
+ st.innerHTML=`<span class="ok">Actualizado. Partidos leídos: ${updated}. Última: ${new Date().toLocaleString()}</span>`;}catch(e){st.innerHTML=`<span class="bad">No se pudo actualizar desde ESPN: ${e.message}. Puedes usar captura manual.</span>`;} recalc();}
+window.addEventListener('load',()=>{loadAnnex(); recalc(); loadLive(); setInterval(loadLive,60000);});
+</script>
+</body>
+</html>
